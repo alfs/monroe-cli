@@ -71,7 +71,7 @@ def create(args):
         exp.model(new=True)
     if args.jsonstr:
         try:
-            d_opt = make_dict(args.jsonstr)
+            d_opt = json.loads(args.jsonstr[0])
         except Exception as err:
             print("Malformed options string: %s") % err
         exp.jsonstr(d_opt)
@@ -104,9 +104,10 @@ def create(args):
         exp.countries(c)
     if args.nodes:
         exp.nodes(args.nodes)
+        exp.nodecount(len(args.nodes))
     if args.recurrence:
         try:
-            period = int(args.recurrence[0])
+            period = int(arg.recurrence[0])
         except:
             raise SystemExit('Argument must be an integer')
         until = args.recurrence[1]
@@ -120,11 +121,13 @@ def create(args):
             date_t(until)
         except Exception as err:
             raise SystemExit(err)
+        exp.recurrence(period, date_t(until))
     if args.maxnodes:
         maxnodes= scheduler.get_availability(exp).max_nodecount()
         #print(maxnodes)
         exp.nodecount(maxnodes)
-
+    if args.start:
+        exp.start(args.start)
     if args.availability:
         #print(exp.prepareJson())
         try:
@@ -160,21 +163,6 @@ def create(args):
         except Exception as err:
            raise SystemExit(err)
 
-
-def make_dict(lst):
-    '''Function which parses a list of strings into a dict'''
-    d ={}
-    for item in lst:
-        pair = item.partition(":")
-        if pair[2].startswith('[') and ']' in pair[2]:
-            d[pair[0]] = pair[2].strip('[]').split(',')
-        elif pair[2].startswith('{') and '}' in pair[2]:
-           l =pair[2].strip('{}').split(', ')
-           d[pair[0]]= make_dict(l)
-        else:
-            d[pair[0]] = pair[2]
-    return d
-
 def date_t(value):
     '''Function which checks a given string can be converted to a date within accepted scheduler ranges'''
     try:
@@ -185,7 +173,7 @@ def date_t(value):
         raise argparse.ArgumentTypeError(msg)
     if t < time.time() or t > time.time() + 2678400:
         raise SystemExit("Date/time outside the acceptable ranges")
-    return value
+    return t
 
 
 def gen_ssh_mnr():
@@ -320,7 +308,7 @@ def handle_args(argv):
     parser_exp.add_argument(
         '--jsonstr',
         nargs='+',
-        help='Additional options string, formatted as key:value pairs. Example: <apple:sour orange:tasty banana:"[yellow,yummy]" vegetables:"{broccoli:green, tomato:[red,juicy]}">' 
+        help='Additional options string, formatted as json. Example: "{\\\'apple\\\':\\\'sour\\\', \\\'orange\\\':\\\'tasty\\\', \\\'banana\\\':[\'yellow\\\',\\\'yummy\\\']}". Note that quotes must be escaped on the command line.' 
     )
     parser_exp.add_argument(
         '--countries',
@@ -403,14 +391,14 @@ def handle_args(argv):
     if args.func != setup:
         if not os.path.isfile(mnr_key) or not os.path.isfile(mnr_crt):
             raise SystemExit(
-                "Please run monroe setup --cert <certificate> to be able to submit experiments and retrieve results."
+                "Please run monroe setup <certificate> to be able to submit experiments and retrieve results."
             )
         try:
             scheduler = Scheduler(mnr_crt, mnr_key)
             auth = scheduler.auth()
         except:
             raise SystemExit(
-                "Something went wrong.\nTry running monroe setup --cert <certificate>\nto refresh your certificate and check the scheduler is running\nand can be accessed from your local network."
+                "Something went wrong.\nTry running monroe setup <certificate>\nto refresh your certificate and check the scheduler is running\nand can be accessed from your local network."
             )
         args.func(args)
     else:
